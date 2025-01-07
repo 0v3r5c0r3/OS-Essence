@@ -15,6 +15,17 @@ str compilerPath #persist;
 int compilerIndex #persist;
 bool runningMakefiles #persist;
 
+// Returns true if file matches given SHA 256 checksum
+// Note: using StringStartsWith and StringEndsWith to avoid mismatch due to asterisk in front of file name on MSYS2/Windows
+bool FileMatchesSHA256Checksum(str filename, str checksum) {
+	str shasum = SystemShellEvaluate("shasum -a 256 %filename%");
+	if StringStartsWith(shasum, checksum) && StringEndsWith(shasum, filename) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 /////////////////////////////////////////////////////////////
 // Environment setup
 /////////////////////////////////////////////////////////////
@@ -45,8 +56,7 @@ void Setup(bool forAutomation) {
 		assert false;
 	}
 
-	if SystemShellEvaluate("shasum -a 256 util/test.txt") 
-			!= "2c5622dbbf2552e0e66424a302bde0918e09379afce47eef1a21ef0198990fed  util/test.txt\n" {
+	if FileMatchesSHA256Checksum("util/test.txt", "2c5622dbbf2552e0e66424a302bde0918e09379afce47eef1a21ef0198990fed") {
 		Log(TextColorError() + "--------------------------------------------------------------------");
 		Log(TextColorError() + "                  The source has been corrupted!!                   ");
 		Log(TextColorError() + "  Please check that you have disabled any automatic line-ending or  ");
