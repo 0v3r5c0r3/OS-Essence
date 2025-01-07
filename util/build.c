@@ -392,7 +392,12 @@ void BuildUtilities() {
 	}
 
 	BUILD_UTILITY("render_svg", "-lm", "");
+#ifdef __MSYS__
+	// On MSYS/Windows parallel build gets often hung/deadlocked
+	BUILD_UTILITY("build_core", "-pthread", "");
+#else
 	BUILD_UTILITY("build_core", "-pthread -DPARALLEL_BUILD", "");
+#endif
 }
 
 void Build(int optimise, bool compile) {
