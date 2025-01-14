@@ -653,7 +653,7 @@ void Run(int emulator, int log, int debug) {
 		case EMULATOR_VIRTUALBOX: {
 			// TODO Automatically setup the Essence VM if it doesn't exist. 
 
-			CallSystem("VBoxManage storageattach Essence --storagectl AHCI --port 0 --device 0 --type hdd --medium none");
+			CallSystem("VBoxManage storageattach Essence --storagectl SATA --port 0 --device 0 --type hdd --medium none");
 			CallSystem("VBoxManage closemedium disk bin/vbox.vdi --delete");
 
 			if (IsOptionEnabled("Emulator.VBoxEFI")) {
@@ -665,7 +665,7 @@ void Run(int emulator, int log, int debug) {
 				CallSystem("VBoxManage modifyvm Essence --firmware bios");
 			}
 
-			CallSystem("VBoxManage storageattach Essence --storagectl AHCI --port 0 --device 0 --type hdd --medium bin/vbox.vdi");
+			CallSystem("VBoxManage storageattach Essence --storagectl SATA --port 0 --device 0 --type hdd --medium bin/vbox.vdi");
 
 			CallSystem("VBoxManage startvm --putenv VBOX_GUI_DBG_ENABLED=true Essence"); 
 		} break;
