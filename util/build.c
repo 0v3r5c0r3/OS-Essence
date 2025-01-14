@@ -1145,8 +1145,11 @@ void DoCommand(const char *l) {
 		BUILD_UTILITY("font_editor", "-lX11 -Wno-unused-parameter", "");
 		CallSystem("bin/font_editor res/Fonts/Bitmap\\ Sans\\ Regular\\ 9.font");
 	} else if (0 == strcmp(l, "config")) {
+#ifdef __MSYS__
+		BUILD_UTILITY("config_editor", "-Wl,-subsystem,windows -Wno-unused-parameter -mwindows", "");
+#else
 		BUILD_UTILITY("config_editor", "-lX11 -Wno-unused-parameter", "");
-
+#endif
 		if (CallSystem("bin/config_editor")) {
 			printf("The config editor could not be opened.\n"
 					"This likely means your system does not have X11 setup.\n"

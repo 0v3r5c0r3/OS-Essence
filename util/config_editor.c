@@ -7,7 +7,11 @@
 
 #include <stdio.h>
 
+#ifdef __MSYS__
+#define UI_WINDOWS
+#else
 #define UI_LINUX
+#endif
 #define UI_IMPLEMENTATION
 #include "luigi.h"
 
