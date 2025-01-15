@@ -2,6 +2,17 @@ str url #option;
 str directoryName #option;
 str checksum #option;
 
+// Returns true if file matches given SHA 256 checksum
+// Note: using StringStartsWith and StringEndsWith to avoid mismatch due to asterisk in front of file name on MSYS2/Windows
+bool FileMatchesSHA256Checksum(str filename, str checksum) {
+	str shasum = SystemShellEvaluate("shasum -a 256 %filename%");
+	if StringStartsWith(shasum, checksum) && StringEndsWith(shasum, filename) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 void Get(str url, str directoryName, str checksum) {
 	assert url != "";
 	assert directoryName != "";
@@ -42,8 +53,10 @@ void Get(str url, str directoryName, str checksum) {
 	}
 
 	if checksum != "" {
-		if SystemShellEvaluate("shasum -a 256 %cachePath%") != "%checksum%  %cachePath%\n" {
+		if FileMatchesSHA256Checksum(cachePath, checksum) {
 			LogError("Checksum mismatch for file '%cachePath%'.\n");
+			SystemShellExecute("shasum -a 256 %cachePath%");
+			Log("%checksum% is the expected checksum");
 			PathDelete(cachePath);
 			assert false;
 		}

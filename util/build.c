@@ -392,7 +392,12 @@ void BuildUtilities() {
 	}
 
 	BUILD_UTILITY("render_svg", "-lm", "");
+#ifdef __MSYS__
+	// On MSYS/Windows parallel build gets often hung/deadlocked
+	BUILD_UTILITY("build_core", "-pthread", "");
+#else
 	BUILD_UTILITY("build_core", "-pthread -DPARALLEL_BUILD", "");
+#endif
 }
 
 void Build(int optimise, bool compile) {
@@ -648,7 +653,7 @@ void Run(int emulator, int log, int debug) {
 		case EMULATOR_VIRTUALBOX: {
 			// TODO Automatically setup the Essence VM if it doesn't exist. 
 
-			CallSystem("VBoxManage storageattach Essence --storagectl AHCI --port 0 --device 0 --type hdd --medium none");
+			CallSystem("VBoxManage storageattach Essence --storagectl SATA --port 0 --device 0 --type hdd --medium none");
 			CallSystem("VBoxManage closemedium disk bin/vbox.vdi --delete");
 
 			if (IsOptionEnabled("Emulator.VBoxEFI")) {
@@ -660,7 +665,7 @@ void Run(int emulator, int log, int debug) {
 				CallSystem("VBoxManage modifyvm Essence --firmware bios");
 			}
 
-			CallSystem("VBoxManage storageattach Essence --storagectl AHCI --port 0 --device 0 --type hdd --medium bin/vbox.vdi");
+			CallSystem("VBoxManage storageattach Essence --storagectl SATA --port 0 --device 0 --type hdd --medium bin/vbox.vdi");
 
 			CallSystem("VBoxManage startvm --putenv VBOX_GUI_DBG_ENABLED=true Essence"); 
 		} break;
@@ -1137,11 +1142,18 @@ void DoCommand(const char *l) {
 		CallSystem("mv bin/installer_archive.dat root/Installer\\ Data/archive.dat");
 		CallSystem("mv bin/installer_metadata.dat root/Installer\\ Data/metadata.dat");
 	} else if (0 == strcmp(l, "font-editor")) {
+#ifdef __MSYS__
+		BUILD_UTILITY("font_editor", "-Wl,-subsystem,windows -Wno-unused-parameter -mwindows", "");
+#else
 		BUILD_UTILITY("font_editor", "-lX11 -Wno-unused-parameter", "");
+#endif
 		CallSystem("bin/font_editor res/Fonts/Bitmap\\ Sans\\ Regular\\ 9.font");
 	} else if (0 == strcmp(l, "config")) {
+#ifdef __MSYS__
+		BUILD_UTILITY("config_editor", "-Wl,-subsystem,windows -Wno-unused-parameter -mwindows", "");
+#else
 		BUILD_UTILITY("config_editor", "-lX11 -Wno-unused-parameter", "");
-
+#endif
 		if (CallSystem("bin/config_editor")) {
 			printf("The config editor could not be opened.\n"
 					"This likely means your system does not have X11 setup.\n"

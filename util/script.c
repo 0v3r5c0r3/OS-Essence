@@ -467,7 +467,7 @@ uintptr_t HeapAllocate(ExecutionContext *context);
 
 // --------------------------------- Platform layer definitions.
 
-#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__) || defined(__MSYS__)
 #include <assert.h>
 #define Assert assert
 #endif
@@ -6807,7 +6807,7 @@ int ExternalCharacterToByte(ExecutionContext *context, Value *returnValue) {
 
 // --------------------------------- Platform layer.
 
-#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__linux__) || defined(__APPLE__) || defined(__MSYS__)
 
 #ifdef _WIN32
 #include <direct.h>

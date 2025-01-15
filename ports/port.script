@@ -399,7 +399,8 @@ void PortGCC() {
 		// Build libstdc++.
 		// TODO Waiting on GCC 11.3 to do this for the port. See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=100017.
 		// TODO Work out why this sometimes hangs on Darwin.
-		if SystemGetHostName() != "Darwin" {
+		// Also skip building libstdc++ on MSYS/Windows because it leads to gcc internal compiler error, Segfault
+		if SystemGetHostName() != "Darwin" && !StringStartsWith(SystemGetHostName(), "MSYS") {
 			assert SystemShellExecuteWithWorkingDirectory("bin/build-gcc", "make all-target-libstdc++-v3 -j %processorCount%");
 			assert SystemShellExecuteWithWorkingDirectory("bin/build-gcc", "make install-target-libstdc++-v3");
 		}

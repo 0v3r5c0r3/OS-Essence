@@ -1337,9 +1337,18 @@ int main(int argc, char **argv) {
 
 			if (0 == strcmp(s.section, "toolchain")) {
 				if (0 == strcmp(s.key, "path")) {
+#ifndef __MSYS__
 					executeEnvironment[0] = (char *) malloc(5 + s.valueBytes + 1);
+#else
+					executeEnvironment[0] = (char *) malloc(5 + s.valueBytes + 1 + strlen(getenv("PATH")) + 1);
+#endif
 					strcpy(executeEnvironment[0], "PATH=");
 					strcat(executeEnvironment[0], s.value);
+#ifdef __MSYS__
+					// append current PATH to INI PATH otherwise we will get gcc error "error while loading shared libraries: ?: cannot open shared object file: No such file or directory"
+					strcat(executeEnvironment[0], ":");
+					strcat(executeEnvironment[0], getenv("PATH"));
+#endif
 				} else if (0 == strcmp(s.key, "tmpdir")) {
 					if (s.value[0]) {
 						executeEnvironment[1] = (char *) malloc(7 + s.valueBytes + 1);
@@ -1579,7 +1588,7 @@ int main(int argc, char **argv) {
 			CopyFile(buffer, "bin/Object Files/crtend.o", false);
 
 			Execute(toolchainCC, "-c", "desktop/crt1.c", "-o", "bin/Object Files/crt1.o", ArgString(cCompileFlags), ArgString(commonCompileFlags));
-			Execute(toolchainCC, "-c", "desktop/crtglue.c", "-o" "bin/Object Files/crtglue.o", ArgString(cCompileFlags), ArgString(commonCompileFlags));
+			Execute(toolchainCC, "-c", "desktop/crtglue.c", "-o", "bin/Object Files/crtglue.o", ArgString(cCompileFlags), ArgString(commonCompileFlags));
 			CopyFile("bin/Object Files/crti.o", "root/Applications/POSIX/lib/crti.o", false);
 			CopyFile("bin/Object Files/crtbegin.o", "root/Applications/POSIX/lib/crtbegin.o", false);
 			CopyFile("bin/Object Files/crtend.o", "root/Applications/POSIX/lib/crtend.o", false);
