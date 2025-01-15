@@ -5,7 +5,11 @@
 // TODO Extensions: binary search, shifting glyphs in editor, undo/redo.
 
 #define UI_IMPLEMENTATION
+#ifdef __MSYS__
+#define UI_WINDOWS
+#else
 #define UI_LINUX
+#endif
 #include "luigi.h"
 
 #include <stdio.h>

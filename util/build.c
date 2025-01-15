@@ -1142,7 +1142,11 @@ void DoCommand(const char *l) {
 		CallSystem("mv bin/installer_archive.dat root/Installer\\ Data/archive.dat");
 		CallSystem("mv bin/installer_metadata.dat root/Installer\\ Data/metadata.dat");
 	} else if (0 == strcmp(l, "font-editor")) {
+#ifdef __MSYS__
+		BUILD_UTILITY("font_editor", "-Wl,-subsystem,windows -Wno-unused-parameter -mwindows", "");
+#else
 		BUILD_UTILITY("font_editor", "-lX11 -Wno-unused-parameter", "");
+#endif
 		CallSystem("bin/font_editor res/Fonts/Bitmap\\ Sans\\ Regular\\ 9.font");
 	} else if (0 == strcmp(l, "config")) {
 #ifdef __MSYS__
