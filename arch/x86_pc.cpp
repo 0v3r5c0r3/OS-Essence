@@ -42,6 +42,7 @@ uint32_t bootloaderID;
 uintptr_t bootloaderInformationOffset;
 
 bool x2apic = false;
+uint32_t bootstrapLapicID;
 
 // Spinlock since some drivers need to access it in IRQs (e.g. ACPICA).
 KSpinlock pciConfigSpinlock; 
@@ -736,7 +737,7 @@ void ArchInitialise() {
 
 	x2apic = !!(rdmsr(0x1b) & (1 << 10));
 
-	uint8_t bootstrapLapicID = x2apic ? LapicReadRegister(0x20 >> 2) : (LapicReadRegister(0x20 >> 2) >> 24);
+	bootstrapLapicID = x2apic ? LapicReadRegister(0x20 >> 2) : (LapicReadRegister(0x20 >> 2) >> 24);
 
 	ArchCPU *currentCPU = nullptr;
 
@@ -1003,7 +1004,7 @@ KMSIInformation KRegisterMSI(KIRQHandler handler, void *context, const char *cOw
 				INTERRUPT_VECTOR_MSI_START + i, cOwnerName);
 
 		return {
-			.address = 0xFEE00000,
+			.address = 0xFEE00000 | (bootstrapLapicID << 12),
 			.data = INTERRUPT_VECTOR_MSI_START + i,
 			.tag = i,
 		};
