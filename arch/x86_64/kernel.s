@@ -327,32 +327,6 @@ SetupProcessor1:
 	lidt	[rax]
 	sti
 
-	.enable_apic:
-	; Enable the APIC!
-	; Since we're on AMD64, we know that the APIC will be present.
-	mov	ecx,0x1B
-	rdmsr
-	or	eax,0x800
-	wrmsr
-	and	eax,~0xFFF
-	mov	edi,eax
-
-	; Set the spurious interrupt vector to 0xFF
-	mov	rax,0xFFFFFE00000000F0 ; LOW_MEMORY_MAP_START + 0xF0
-	add	rax,rdi
-	mov	ebx,[rax]
-	or	ebx,0x1FF
-	mov	[rax],ebx
-
-	; Use the flat processor addressing model
-	mov	rax,0xFFFFFE00000000E0 ; LOW_MEMORY_MAP_START + 0xE0
-	add	rax,rdi
-	mov	dword [rax],0xFFFFFFFF
-
-	; Make sure that no external interrupts are masked
-	xor	rax,rax
-	mov	cr8,rax
-
 	ret
 
 SyscallEntry:
