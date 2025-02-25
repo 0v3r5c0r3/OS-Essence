@@ -470,6 +470,10 @@ ProcessorIn32:
 	ret
 
 ProcessorReset:
+	mov 	al, 0xe
+	mov	dx, 0xcf9
+	out	dx, al
+
 	in	al,0x64
 	test	al,2
 	jne	ProcessorReset
