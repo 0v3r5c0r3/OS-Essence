@@ -41,6 +41,9 @@ uintptr_t physicalMemoryHighest;
 uint32_t bootloaderID;
 uintptr_t bootloaderInformationOffset;
 
+bool x2apic = false;
+uint32_t bootstrapLapicID;
+
 // Spinlock since some drivers need to access it in IRQs (e.g. ACPICA).
 KSpinlock pciConfigSpinlock; 
 
@@ -81,7 +84,27 @@ const char *const exceptionInformation[] = {
 	"0x1F: Reserved/Unknown",
 };
 
+static uint64_t rdmsr(uint32_t msr_id)
+{
+	uint32_t low, high;
+
+	asm volatile ("rdmsr" : "=a" (low), "=d" (high) : "c" (msr_id));
+
+	return ((uint64_t) high << 32) | low;
+}
+
+static void wrmsr (uint32_t msr_id, uint64_t msr_value)
+{
+	uint32_t low = msr_value, high = msr_value >> 32;
+
+	asm volatile ("wrmsr" : : "c" (msr_id), "a" (low), "d" (high));
+}
+
+
 uint32_t LapicReadRegister(uint32_t reg) {
+	if (x2apic) {
+		return rdmsr(0x800 + (reg >> 2));
+	}
 #ifdef ES_ARCH_X86_64
 	return acpi.lapicAddress[reg];
 #else
@@ -90,11 +113,25 @@ uint32_t LapicReadRegister(uint32_t reg) {
 }
 
 void LapicWriteRegister(uint32_t reg, uint32_t value) {
+	if (x2apic) {
+		wrmsr(0x800 + (reg >> 2), value);
+		return;
+	}
 #ifdef ES_ARCH_X86_64
 	acpi.lapicAddress[reg] = value;
 #else
 	((volatile uint32_t *) LOCAL_APIC_BASE)[reg] = value;
 #endif
+}
+
+static void write_icr(uint32_t apic_id, uint32_t low) {
+	if (x2apic) {
+		wrmsr(0x830, (((uint64_t)apic_id) << 32) | low);
+		return;
+	}
+
+	LapicWriteRegister(0x310 >> 2, apic_id << 24);
+	LapicWriteRegister(0x300 >> 2, low);
 }
 
 void LapicNextTimer(size_t ms) {
@@ -640,6 +677,22 @@ NewProcessorStorage AllocateNewProcessorStorage(ArchCPU *archCPU) {
 }
 
 void SetupProcessor2(NewProcessorStorage *storage) {
+	// Enable the APIC!
+	// TODO Check it is actually present!
+	// on AMD64, we know that the APIC will be present.
+	wrmsr(0x1b, rdmsr(0x1b) | 0x800 | (x2apic ? (1 << 10) : 0));
+
+	// Set the spurious interrupt vector to 0xFF
+	LapicWriteRegister(0xF0 >> 2, LapicReadRegister(0xF0 >> 2) | 0x1ff);
+
+	// Use the flat processor addressing model
+	if (!x2apic) {
+		LapicWriteRegister(0xE0 >> 2, 0xFFFFFFFF);
+	}
+
+	// Make sure that no external interrupts are masked
+	ProcessorEnableInterrupts();
+
 	// Setup the local interrupts for the current processor.
 		
 	for (uintptr_t i = 0; i < acpi.lapicNMICount; i++) {
@@ -682,7 +735,9 @@ void SetupProcessor2(NewProcessorStorage *storage) {
 void ArchInitialise() {
 	ACPIParseTables();
 
-	uint8_t bootstrapLapicID = (LapicReadRegister(0x20 >> 2) >> 24); 
+	x2apic = !!(rdmsr(0x1b) & (1 << 10));
+
+	bootstrapLapicID = x2apic ? LapicReadRegister(0x20 >> 2) : (LapicReadRegister(0x20 >> 2) >> 24);
 
 	ArchCPU *currentCPU = nullptr;
 
@@ -693,6 +748,12 @@ void ArchInitialise() {
 			currentCPU->bootProcessor = true;
 			break;
 		}
+	}
+
+	if (x2apic) {
+		EsPrint("Using x2apic, boot CPU id %d (apicid 0x%x)\n", currentCPU, bootstrapLapicID);
+	} else {
+		EsPrint("Using xapic, boot CPU id %d (apicid 0x%x)\n", currentCPU, bootstrapLapicID);
 	}
 
 	if (!currentCPU) {
@@ -743,10 +804,8 @@ size_t ProcessorSendIPI(uintptr_t interrupt, bool nmi, int processorID) {
 			}
 		}
 
-		uint32_t destination = acpi.processors[i].apicID << 24;
 		uint32_t command = interrupt | (1 << 14) | (nmi ? 0x400 : 0);
-		LapicWriteRegister(0x310 >> 2, destination);
-		LapicWriteRegister(0x300 >> 2, command); 
+		write_icr(acpi.processors[i].apicID, command); 
 
 		// Wait for the interrupt to be sent.
 		while (LapicReadRegister(0x300 >> 2) & (1 << 12));
@@ -945,7 +1004,7 @@ KMSIInformation KRegisterMSI(KIRQHandler handler, void *context, const char *cOw
 				INTERRUPT_VECTOR_MSI_START + i, cOwnerName);
 
 		return {
-			.address = 0xFEE00000,
+			.address = 0xFEE00000 | (bootstrapLapicID << 12),
 			.data = INTERRUPT_VECTOR_MSI_START + i,
 			.tag = i,
 		};
@@ -1049,15 +1108,13 @@ void ArchStartupApplicationProcessors() {
 
 		// Send an INIT IPI.
 		ProcessorDisableInterrupts(); // Don't be interrupted between writes...
-		LapicWriteRegister(0x310 >> 2, processor->apicID << 24);
-		LapicWriteRegister(0x300 >> 2, 0x4500);
+		write_icr(processor->apicID, 0x4500);
 		ProcessorEnableInterrupts();
 		KEventWait(&delay, 10);
 
 		// Send a startup IPI.
 		ProcessorDisableInterrupts();
-		LapicWriteRegister(0x310 >> 2, processor->apicID << 24);
-		LapicWriteRegister(0x300 >> 2, 0x4600 | (AP_TRAMPOLINE >> K_PAGE_BITS));
+		write_icr(processor->apicID, 0x4600 | (AP_TRAMPOLINE >> K_PAGE_BITS));
 		ProcessorEnableInterrupts();
 		for (uintptr_t i = 0; i < 100 && *startupFlag == 0; i++) KEventWait(&delay, 1);
 
@@ -1066,8 +1123,7 @@ void ArchStartupApplicationProcessors() {
 		} else {
 			// Send a startup IPI, again.
 			ProcessorDisableInterrupts();
-			LapicWriteRegister(0x310 >> 2, processor->apicID << 24);
-			LapicWriteRegister(0x300 >> 2, 0x4600 | (AP_TRAMPOLINE >> K_PAGE_BITS));
+			write_icr(processor->apicID, 0x4600 | (AP_TRAMPOLINE >> K_PAGE_BITS));
 			ProcessorEnableInterrupts();
 			for (uintptr_t i = 0; i < 1000 && *startupFlag == 0; i++) KEventWait(&delay, 1); // Wait longer this time.
 

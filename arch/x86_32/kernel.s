@@ -225,27 +225,6 @@ SetupProcessor1:
 	lidt	[idt]
 	sti
 
-	; Enable the APIC.
-	; TODO Check it is actually present!
-	mov	ecx,0x1B
-	rdmsr
-	or	eax,0x800
-	wrmsr
-
-	; Set the spurious interrupt vector to 0xFF
-	mov	eax,0xEC3FF0F0
-	mov	ebx,[eax]
-	or	ebx,0x1FF
-	mov	[eax],ebx
-
-	; Use the flat processor addressing model
-	mov	eax,0xEC3FF0E0
-	mov	dword [eax],0xFFFFFFFF
-
-	; Make sure that no external interrupts are masked
-	xor	eax,eax
-	mov	[0xEC3FF080],eax
-
 	; TODO More feature detection and initialisation!
 
 	ret
