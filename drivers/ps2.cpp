@@ -566,12 +566,14 @@ void PS2::Initialise(KDevice *parentDevice) {
 	}
 
 	{
+	        // Normal timeout may be exhausted, start a new one
+	  	KTimeout irqTimeout(1000);
 		WaitInputBuffer();
 		ProcessorOut8(IO_PS2_COMMAND, PS2_READ_CONFIG);
-		uint8_t configurationByte = ReadByte(&timeout);
+		uint8_t configurationByte = ReadByte(&irqTimeout);
 		WaitInputBuffer();
 		ProcessorOut8(IO_PS2_COMMAND, PS2_WRITE_CONFIG);
-		WriteByte(&timeout, configurationByte | PS2_FIRST_IRQ_MASK | PS2_SECOND_IRQ_MASK);
+		WriteByte(&irqTimeout, configurationByte | PS2_FIRST_IRQ_MASK | PS2_SECOND_IRQ_MASK);
 	}
 
 	if (!registeredIRQs) {
